@@ -24,10 +24,13 @@ from app.router import (
 )
 from app.service.key.key_manager import get_key_manager_instance
 from app.service.stats.stats_service import StatsService
+from app.utils.static_version import get_static_url
 
 logger = get_routes_logger()
 
 templates = Jinja2Templates(directory="app/templates")
+# 设置模板全局变量
+templates.env.globals["static_url"] = get_static_url
 
 
 def setup_routers(app: FastAPI) -> None:
@@ -233,9 +236,9 @@ def setup_api_stats_routes(app: FastAPI) -> None:
 
     @app.get("/api/stats/attention-keys")
     async def api_stats_attention_keys(
-        request: Request, limit: int = 20, status_code: int = 429
+        request: Request, limit: int = 20, status_code: int = 429, hours: int = 24
     ):
-        """返回最近24小时指定错误码次数最多的Key（仅包含内存Key列表中的）。默认错误码429。"""
+        """返回最近指定小时内指定错误码次数最多的Key（仅包含内存Key列表中的）。"""
         try:
             auth_token = request.cookies.get("auth_token")
             if not auth_token or not verify_auth_token(auth_token):
@@ -252,8 +255,8 @@ def setup_api_stats_routes(app: FastAPI) -> None:
                 keys_status.get("invalid_keys", [])
             )
             stats_service = StatsService()
-            data = await stats_service.get_attention_keys_last_24h(
-                in_memory_keys, limit, status_code
+            data = await stats_service.get_attention_keys(
+                in_memory_keys, limit, status_code, hours
             )
             return data
         except Exception as e:

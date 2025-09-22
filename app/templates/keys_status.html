@@ -1309,9 +1309,15 @@ endblock %} {% block head_extra_styles %}
         <div class="stats-card-header">
           <h3 class="stats-card-title">
             <i class="fas fa-exclamation-circle"></i>
-            <span>值得注意的Key（24h内错误码最多）</span>
+            <span>值得注意的Key</span>
           </h3>
           <div class="flex items-center gap-2 text-xs">
+            <button id="attentionHours24" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700" data-hours="24">1天内</button>
+            <button id="attentionHours168" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700" data-hours="168">7天内</button>
+            <div class="flex items-center gap-1 ml-2">
+              <input id="attentionDaysCustom" type="number" min="1" max="365" placeholder="天数" class="form-input h-7 w-14 px-2 py-1 text-xs border rounded focus:ring-primary-500 focus:border-primary-500" />天
+            </div>
+            <span class="mx-1 text-gray-300">|</span>
             <button id="attentionErr429" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700" title="429 Too Many Requests">429</button>
             <button id="attentionErr403" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700" title="403 Forbidden">403</button>
             <button id="attentionErr400" class="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700" title="400 Bad Request">400</button>

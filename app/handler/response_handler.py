@@ -293,7 +293,9 @@ def _extract_image_data(part: dict) -> str:
         )
     elif settings.UPLOAD_PROVIDER == "picgo":
         image_uploader = ImageUploaderFactory.create(
-            provider=settings.UPLOAD_PROVIDER, api_key=settings.PICGO_API_KEY
+            provider=settings.UPLOAD_PROVIDER, 
+            api_key=settings.PICGO_API_KEY,
+            api_url=settings.PICGO_API_URL
         )
     elif settings.UPLOAD_PROVIDER == "cloudflare_imgbed":
         image_uploader = ImageUploaderFactory.create(
@@ -301,6 +303,16 @@ def _extract_image_data(part: dict) -> str:
             base_url=settings.CLOUDFLARE_IMGBED_URL,
             auth_code=settings.CLOUDFLARE_IMGBED_AUTH_CODE,
             upload_folder=settings.CLOUDFLARE_IMGBED_UPLOAD_FOLDER,
+        )
+    elif settings.UPLOAD_PROVIDER == "aliyun_oss":
+        image_uploader = ImageUploaderFactory.create(
+            provider=settings.UPLOAD_PROVIDER,
+            access_key=settings.OSS_ACCESS_KEY,
+            access_key_secret=settings.OSS_ACCESS_KEY_SECRET,
+            bucket_name=settings.OSS_BUCKET_NAME,
+            endpoint=settings.OSS_ENDPOINT,
+            region=settings.OSS_REGION,
+            use_internal=False
         )
     current_date = time.strftime("%Y/%m/%d")
     filename = f"{current_date}/{uuid.uuid4().hex[:8]}.png"

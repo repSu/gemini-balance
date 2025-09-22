@@ -260,16 +260,22 @@ class StatsService:
             )
             raise
 
-    async def get_attention_keys_last_24h(
-        self, include_keys: set[str], limit: int = 20, status_code: int = 429
+    async def get_attention_keys(
+        self, include_keys: set[str], limit: int = 20, status_code: int = 429, hours: int = 24
     ) -> list[dict]:
-        """返回最近24小时内指定状态码(默认429)最多的Key列表，仅包含include_keys中的Key。
+        """返回最近指定小时内指定状态码最多的Key列表，仅包含include_keys中的Key。
+
+        Args:
+            include_keys: 要包含的Key集合
+            limit: 返回的Key数量
+            status_code: 要查询的状态码
+            hours: 最近的小时数
 
         Returns: [{"key": str, "count": int, "status_code": int}, ...] 按次数降序
         """
         try:
             now = datetime.datetime.now()
-            start_time = now - datetime.timedelta(hours=24)
+            start_time = now - datetime.timedelta(hours=hours)
             if not include_keys:
                 return []
             query = (
@@ -295,7 +301,7 @@ class StatsService:
             ]
         except Exception as e:
             logger.error(
-                f"Failed to get attention keys ({status_code}) in last 24h: {e}"
+                f"Failed to get attention keys ({status_code}) in last {hours}h: {e}"
             )
             return []
 
