@@ -43,6 +43,13 @@ async def get_next_working_key(key_manager: KeyManager = Depends(get_key_manager
     return await key_manager.get_next_working_key()
 
 
+async def get_next_working_embedding_key(
+    key_manager: KeyManager = Depends(get_key_manager),
+):
+    """获取下一个可用的 Embedding API 密钥"""
+    return await key_manager.get_next_working_embedding_key()
+
+
 async def get_chat_service(key_manager: KeyManager = Depends(get_key_manager)):
     """获取Gemini聊天服务实例"""
     return GeminiChatService(settings.BASE_URL, key_manager)
@@ -274,12 +281,12 @@ async def count_tokens(
 
 @router.post("/models/{model_name}:embedContent")
 @router_v1beta.post("/models/{model_name}:embedContent")
-@RetryHandler(key_arg="api_key")
+@RetryHandler(key_arg="api_key", failure_handler="handle_embedding_api_failure")
 async def embed_content(
     model_name: str,
     request: GeminiEmbedRequest,
     allowed_token=Depends(security_service.verify_key_or_goog_api_key),
-    api_key: str = Depends(get_next_working_key),
+    api_key: str = Depends(get_next_working_embedding_key),
     key_manager: KeyManager = Depends(get_key_manager),
     embedding_service: GeminiEmbeddingService = Depends(get_embedding_service),
 ):
@@ -306,12 +313,12 @@ async def embed_content(
 
 @router.post("/models/{model_name}:batchEmbedContents")
 @router_v1beta.post("/models/{model_name}:batchEmbedContents")
-@RetryHandler(key_arg="api_key")
+@RetryHandler(key_arg="api_key", failure_handler="handle_embedding_api_failure")
 async def batch_embed_contents(
     model_name: str,
     request: GeminiBatchEmbedRequest,
     allowed_token=Depends(security_service.verify_key_or_goog_api_key),
-    api_key: str = Depends(get_next_working_key),
+    api_key: str = Depends(get_next_working_embedding_key),
     key_manager: KeyManager = Depends(get_key_manager),
     embedding_service: GeminiEmbeddingService = Depends(get_embedding_service),
 ):

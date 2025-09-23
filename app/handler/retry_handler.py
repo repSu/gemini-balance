@@ -13,8 +13,11 @@ logger = get_retry_logger()
 class RetryHandler:
     """重试处理装饰器"""
 
-    def __init__(self, key_arg: str = "api_key"):
+    def __init__(
+        self, key_arg: str = "api_key", failure_handler: str = "handle_api_failure"
+    ):
         self.key_arg = key_arg
+        self.failure_handler = failure_handler
 
     def __call__(self, func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
@@ -35,10 +38,13 @@ class RetryHandler:
                     key_manager = kwargs.get("key_manager")
                     if key_manager:
                         old_key = kwargs.get(self.key_arg)
-                        new_key = await key_manager.handle_api_failure(old_key, retries)
+                        handler = getattr(key_manager, self.failure_handler)
+                        new_key = await handler(old_key, retries)
                         if new_key:
                             kwargs[self.key_arg] = new_key
-                            logger.info(f"Switched to new API key: {redact_key_for_logging(new_key)}")
+                            logger.info(
+                                f"Switched to new API key: {redact_key_for_logging(new_key)}"
+                            )
                         else:
                             logger.error(f"No valid API key available after {retries} retries.")
                             break

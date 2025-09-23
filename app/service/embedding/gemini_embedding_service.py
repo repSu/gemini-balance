@@ -65,6 +65,7 @@ class GeminiEmbeddingService:
             response = await self.api_client.embed_content(payload, model, api_key)
             is_success = True
             status_code = 200
+            await self.key_manager.lock_current_embedding_key(api_key)
             return response
         except Exception as e:
             is_success = False
@@ -81,6 +82,7 @@ class GeminiEmbeddingService:
                 request_msg=payload if settings.ERROR_LOG_RECORD_REQUEST_BODY else None,
                 request_datetime=request_datetime,
             )
+            await self.key_manager.handle_embedding_api_failure(api_key, 0)
             raise e
         finally:
             end_time = time.perf_counter()
@@ -111,6 +113,7 @@ class GeminiEmbeddingService:
             )
             is_success = True
             status_code = 200
+            await self.key_manager.lock_current_embedding_key(api_key)
             return response
         except Exception as e:
             is_success = False
@@ -127,6 +130,7 @@ class GeminiEmbeddingService:
                 request_msg=payload if settings.ERROR_LOG_RECORD_REQUEST_BODY else None,
                 request_datetime=request_datetime,
             )
+            await self.key_manager.handle_embedding_api_failure(api_key, 0)
             raise e
         finally:
             end_time = time.perf_counter()

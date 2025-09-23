@@ -40,6 +40,12 @@ async def get_next_working_key_wrapper(
     return await key_manager.get_next_working_key()
 
 
+async def get_next_working_embedding_key_wrapper(
+    key_manager: KeyManager = Depends(get_key_manager),
+):
+    return await key_manager.get_next_working_embedding_key()
+
+
 async def get_openai_chat_service(key_manager: KeyManager = Depends(get_key_manager)):
     """获取OpenAI聊天服务实例"""
     return OpenAIChatService(settings.BASE_URL, key_manager)
@@ -154,19 +160,26 @@ async def generate_image(
 async def embedding(
     request: EmbeddingRequest,
     allowed_token=Depends(security_service.verify_authorization),
+    api_key: str = Depends(get_next_working_embedding_key_wrapper),
     key_manager: KeyManager = Depends(get_key_manager),
 ):
     """处理 OpenAI 文本嵌入请求。"""
     operation_name = "embedding"
     async with handle_route_errors(logger, operation_name):
         logger.info(f"Handling embedding request for model: {request.model}")
-        api_key = await key_manager.get_next_working_key()
         logger.info(f"Using allowed token: {allowed_token}")
         logger.info(f"Using API key: {redact_key_for_logging(api_key)}")
-        response = await embedding_service.create_embedding(
-            input_text=request.input, model=request.model, api_key=api_key
-        )
-        return response
+        try:
+            response = await embedding_service.create_embedding(
+                input_text=request.input, model=request.model, api_key=api_key
+            )
+            # 成功时锁定当前 Embedding 密钥
+            await key_manager.lock_current_embedding_key(api_key)
+            return response
+        except Exception as e:
+            # 失败时报告 Embedding 密钥失败
+            await key_manager.handle_embedding_api_failure(api_key, 0)
+            raise e
 
 
 @router.get("/v1/keys/list")

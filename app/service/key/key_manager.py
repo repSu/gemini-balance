@@ -15,8 +15,10 @@ class KeyManager:
         self.api_keys = api_keys
         self.vertex_api_keys = vertex_api_keys
         self.key_cycle = cycle(api_keys)
+        self.embedding_key_cycle = cycle(api_keys)
         self.vertex_key_cycle = cycle(vertex_api_keys)
         self.key_cycle_lock = asyncio.Lock()
+        self.embedding_key_cycle_lock = asyncio.Lock()
         self.vertex_key_cycle_lock = asyncio.Lock()
         self.failure_count_lock = asyncio.Lock()
         self.vertex_failure_count_lock = asyncio.Lock()
@@ -29,6 +31,9 @@ class KeyManager:
         # 新增当前密钥字段
         self.current_key = None
         self.current_key_lock = asyncio.Lock()
+        # Embedding 专用当前密钥
+        self.embedding_current_key = None
+        self.embedding_current_key_lock = asyncio.Lock()
 
     async def get_paid_key(self) -> str:
         return self.paid_key
@@ -37,6 +42,11 @@ class KeyManager:
         """获取下一个API key"""
         async with self.key_cycle_lock:
             return next(self.key_cycle)
+
+    async def get_next_embedding_key(self) -> str:
+        """获取下一个 Embedding API key"""
+        async with self.embedding_key_cycle_lock:
+            return next(self.embedding_key_cycle)
 
     async def get_next_vertex_key(self) -> str:
         """获取下一个 Vertex Express API key"""
@@ -112,6 +122,31 @@ class KeyManager:
                     self.current_key = current_key
                 return current_key
 
+    async def get_next_working_embedding_key(self) -> str:
+        """获取下一可用的 Embedding API key"""
+        # 优先返回当前有效 Embedding 密钥
+        async with self.embedding_current_key_lock:
+            if self.embedding_current_key and await self.is_key_valid(
+                self.embedding_current_key
+            ):
+                return self.embedding_current_key
+
+        # 当前密钥无效或未设置，则获取新密钥
+        initial_key = await self.get_next_embedding_key()
+        current_key = initial_key
+
+        while True:
+            if await self.is_key_valid(current_key):
+                async with self.embedding_current_key_lock:
+                    self.embedding_current_key = current_key
+                return current_key
+
+            current_key = await self.get_next_embedding_key()
+            if current_key == initial_key:
+                async with self.embedding_current_key_lock:
+                    self.embedding_current_key = current_key
+                return current_key
+
     async def get_next_working_vertex_key(self) -> str:
         """获取下一可用的 Vertex Express API key"""
         initial_key = await self.get_next_vertex_key()
@@ -142,6 +177,26 @@ class KeyManager:
         
         if retries < settings.MAX_RETRIES:
             return await self.get_next_working_key()
+        else:
+            return ""
+
+    async def handle_embedding_api_failure(self, api_key: str, retries: int) -> str:
+        """处理 Embedding API 调用失败"""
+        async with self.failure_count_lock:
+            self.key_failure_counts[api_key] += 1
+            if self.key_failure_counts[api_key] >= self.MAX_FAILURES:
+                logger.warning(
+                    f"API key {redact_key_for_logging(api_key)} has failed {self.MAX_FAILURES} times"
+                )
+
+        # 清除当前 Embedding 密钥
+        async with self.embedding_current_key_lock:
+            if self.embedding_current_key == api_key:
+                self.embedding_current_key = None
+                logger.info(f"Cleared current embedding key due to failure: {api_key}")
+
+        if retries < settings.MAX_RETRIES:
+            return await self.get_next_working_embedding_key()
         else:
             return ""
 
@@ -222,6 +277,13 @@ class KeyManager:
             if api_key != self.current_key:
                 logger.info(f"Locking current API key: {api_key}")
                 self.current_key = api_key
+
+    async def lock_current_embedding_key(self, api_key: str) -> None:
+        """锁定当前 Embedding API 密钥（成功时调用）"""
+        async with self.embedding_current_key_lock:
+            if api_key != self.embedding_current_key:
+                logger.info(f"Locking current Embedding API key: {api_key}")
+                self.embedding_current_key = api_key
 
     async def get_random_valid_key(self) -> str:
         """获取随机的有效API key"""
